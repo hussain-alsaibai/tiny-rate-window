@@ -1,0 +1,74 @@
+# tiny-rate-window
+
+> Zero-dependency sliding-window rate limiter for HTTP APIs and agent pipelines. Stdlib only. MIT.
+
+## What it does
+
+Implements the **weighted sliding-window** algorithm for per-key request
+rate limiting. A request is allowed when
+`previous_window_count * overlap_fraction + current_window_count <= limit`.
+
+Sister libraries:
+- `tiny-rate-limiter` — token-bucket for LLM RPM/TPM. Use that for AI workloads.
+- `tiny-circuit-breaker` — failure-rate breaker. Compose after this.
+- `tiny-retry-plus` — transient retry. Use Retry-After from this library's Decision.
+
+## When to use
+
+Use this when you need a *hard* ceiling on requests-per-time-window
+and:
+- You don't have Redis (or don't want it on the hot path).
+- The limiter must live in-process with the handler.
+- You want HTTP-header emission (`X-RateLimit-Limit`, `Retry-After`).
+
+For AI provider rate limits (RPM/TPM), use `tiny-rate-limiter` instead —
+this library is for HTTP request rate.
+
+## Install
+
+```bash
+pip install tiny-rate-window
+```
+
+## Public API (most-used 20%)
+
+```python
+from tiny_rate_window import SlidingWindowLimiter, http_headers
+
+limiter = SlidingWindowLimiter(limit=100, window_seconds=60)
+d = limiter.try_acquire("user:42")
+# d.allowed, d.remaining, d.retry_after_s, d.current_count
+headers = http_headers(d)  # X-RateLimit-* dict
+```
+
+Full API:
+- `SlidingWindowLimiter(limit, window_seconds, *, max_keys=0, clock=time.monotonic, on_reject=None)`
+- `try_acquire(key, *, cost=1, now=None) -> Decision`
+- `peek(key, *, now=None) -> Decision`
+- `reset(key=None)`
+- `evict_idle(idle_seconds, *, now=None) -> int`
+- `stats() -> LimiterStats`
+- `http_headers(decision) -> dict[str, str]`
+- `Decision` dataclass: `allowed`, `limit`, `remaining`, `retry_after_s`, `window_seconds`, `current_count`
+
+## Constants
+
+- `__version__ = "0.1.0"`
+- 23 unit tests in `test_tiny_rate_window.py`
+
+## Thread safety
+
+A single `threading.Lock` per limiter. For >50K qps single-process with
+millions of keys, shard key hashes across N limiters.
+
+## Composition patterns
+
+1. **HTTP middleware**: `try_acquire(client_ip)` → 429 with `Retry-After`.
+2. **Agent pipelines**: wrap every external tool call so a misbehaving
+   downstream can't blow the budget.
+3. **Anomaly detection**: subscribe to `on_reject` and emit a metric per
+   blocked key. A burst of rejections on a single key is a signal.
+
+## License
+
+MIT. Author: Hussain AlSaibai <hussain.alsaibai@gmail.com>.
