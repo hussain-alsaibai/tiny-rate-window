@@ -5,7 +5,8 @@
 Stdlib only. MIT licensed. ~350 LOC. 23 tests.
 
 ```bash
-pip install tiny-rate-window
+# From GitHub (recommended -- not yet on PyPI)
+pip install git+https://github.com/hussain-alsaibai/tiny-rate-window.git
 ```
 
 ---
