@@ -26,8 +26,10 @@ this library is for HTTP request rate.
 
 ## Install
 
+NOTE: unpublished on PyPI -- the bare name is not on the index, so the `pip install <name>` form 404s. The URL below is the install.
+
 ```bash
-pip install tiny-rate-window
+pip install "tiny-rate-window @ git+https://github.com/hussain-alsaibai/tiny-rate-window.git"
 ```
 
 ## Public API (most-used 20%)
